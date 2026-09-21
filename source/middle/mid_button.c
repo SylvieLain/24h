@@ -30,7 +30,7 @@
 
 #include "mid_button.h"
 #include "Hardware/Key/KEY.h"
-#include "app/app_key_task.h"
+#include "app/key/app_key_task.h"
 
 typedef enum
 {

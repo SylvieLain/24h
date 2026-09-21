@@ -7,8 +7,8 @@
  *
  */
 
-#include "app/app_key_task.h"
-#include "app/app_irtracking.h"
+#include "app/key/app_key_task.h"
+#include "app/tarcking/app_irtracking.h"
 #include "Hardware/Buzzer&Light/B&L.h"
 
 //上左中右
@@ -33,7 +33,7 @@ char get_app_key_current_mode(void)
 }
 
 /**
- * @brief  中键回调：单击取反 RunFlag（临时代管逻辑）
+ * @brief  中键回调：当前任务1不使用
  */
 void btn_mid_cb(flex_button_t *btn)
 {
@@ -42,10 +42,7 @@ void btn_mid_cb(flex_button_t *btn)
         return;
     }
 
-    if ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK)
-    {
-        RunFlag = (RunFlag == 0U) ? 1U : 0U;
-    }
+    (void)btn;
 }
 
 /**

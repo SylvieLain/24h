@@ -8,11 +8,11 @@
 #include "Hardware/Buzzer&Light/B&L.h"
 #include "middle/mid_debug_led.h"
 #include "middle/mid_pid.h"
-#include "app/app_key_task.h"
+#include "app/key/app_key_task.h"
 #include "Hardware/BlueSerial/bsp_hc05.h"
 #include <stdlib.h>
 #include "Hardware/jy901s/jy901s.h"
-#include "app/app_irtracking.h"
+#include "app/tarcking/app_irtracking.h"
 
 
 static void SystemIrq_Init(void)
