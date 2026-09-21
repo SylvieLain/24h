@@ -1,0 +1,28 @@
+# Build outputs
+build/
+
+# Compiled objects and binaries
+*.o
+*.elf
+*.hex
+*.bin
+*.map
+*.d
+*.out
+
+# EIDE local backups
+.eide/*.bak
+.eide/files.options.yml
+
+# VS Code local settings
+.vscode/
+
+# Local workspace files
+*.code-workspace
+
+# Local language-server settings
+.clangd
+
+# OS junk
+Thumbs.db
+.DS_Store

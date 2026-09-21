@@ -1,0 +1,13 @@
+{
+  "interface_cfg": "interface/cmsis-dap.cfg",
+  "target_cfg": "D:/MCU_Code/TI/revenge/9.5/mspm0l.cfg",
+  "transport": "swd",
+  "elf_file": "D:\\MCU_Code\\TI\\revenge\\9.5\\build\\Debug\\9.5.elf",
+  "permissions": {
+    "read_only": false,
+    "allow_memory_write": true,
+    "allow_flash": false,
+    "allow_flash_erase": false,
+    "allow_raw_command": false
+  }
+}

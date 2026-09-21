@@ -1,0 +1,6 @@
+openocd-mcp==0.4.5
+# 0.4.5 imports mcp.server.fastmcp, removed in SDK 2.x.
+mcp==1.29.1
+# dap monitor/plot and ELF typed variables.
+matplotlib>=3.9,<4
+pyelftools>=0.32,<1

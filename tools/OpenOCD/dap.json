@@ -1,0 +1,69 @@
+{
+  "host": "127.0.0.1",
+  "port": 6666,
+  "elf": "../../build/Debug/9.5.elf",
+  "liveness_symbol": "Tick",
+  "safe_rates_hz": {
+    "1-4": 50,
+    "5-8": 25,
+    "9+": 10
+  },
+  "aliases": {
+    "car.tick": "Tick",
+    "car.run": "RunFlag",
+    "car.track": "TrackFlag",
+    "car.gyro_angle_x": "Gyro_Data.angle_x",
+    "car.gyro_gyro_x": "Gyro_Data.gyro_x",
+    "car.gyro_accel_z": "Gyro_Data.accel_z",
+    "car.left_pwm": "LeftPWM",
+    "car.right_pwm": "RightPWM",
+    "car.ave_pwm": "AvePWM",
+    "car.dif_pwm": "DifPWM",
+    "car.left_speed": "LeftSpeed",
+    "car.right_speed": "RightSpeed",
+    "car.ave_speed": "AveSpeed",
+    "car.deadzone": "DeadZone",
+    "car.speed_target": "speed_PID.Target",
+    "car.speed_actual": "speed_PID.Actual",
+    "car.speed_kp": "speed_PID.Kp",
+    "car.speed_ki": "speed_PID.Ki",
+    "car.speed_kd": "speed_PID.Kd",
+    "car.speed_out": "speed_PID.Out",
+    "car.turn_target": "turn_PID.Target",
+    "car.turn_actual": "turn_PID.Actual",
+    "car.turn_kp": "turn_PID.Kp",
+    "car.turn_ki": "turn_PID.Ki",
+    "car.turn_kd": "turn_PID.Kd",
+    "car.turn_out": "turn_PID.Out"
+  },
+  "writable": [
+    "car.run",
+    "car.track",
+    "car.speed_target",
+    "car.speed_kp",
+    "car.speed_ki",
+    "car.speed_kd",
+    "car.turn_target",
+    "car.turn_kp",
+    "car.turn_ki",
+    "car.turn_kd"
+  ],
+  "write_limits": {
+    "car.run": [0, 1],
+    "car.track": [0, 1],
+    "car.speed_target": [-1000, 1000],
+    "car.speed_kp": [0, 1000],
+    "car.speed_ki": [0, 1000],
+    "car.speed_kd": [0, 1000],
+    "car.turn_target": [-1000, 1000],
+    "car.turn_kp": [0, 1000],
+    "car.turn_ki": [0, 1000],
+    "car.turn_kd": [0, 1000]
+  },
+  "estop_symbol": "car.run",
+  "openocd": {
+    "executable": "D:/MCU_Code/TI/revenge/9.5/tools/openocd_xpack_0.12.0-7/bin/openocd.exe",
+    "scripts": "D:/MCU_Code/TI/revenge/9.5/tools/openocd_xpack_0.12.0-7/openocd/scripts",
+    "config": "openocd.cfg"
+  }
+}
