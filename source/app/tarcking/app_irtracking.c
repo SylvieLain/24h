@@ -16,11 +16,6 @@ volatile uint8_t trace_status = 0;//记录开环与循迹的变化值 0为正常
 volatile uint8_t TrackFlag = 0U;
 volatile uint8_t Task1Flag = 0U;
 
-typedef enum {
-    TRACE_OPEN = 0,
-    TRACE_CLOSE = 1
-} TraceState;
-
 volatile TraceState trace_state = TRACE_OPEN;
 static uint8_t trace_point_active = 0U;
 
