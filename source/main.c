@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include "Hardware/jy901s/jy901s.h"
 #include "app/tarcking/app_irtracking.h"
+#include "app/tasks/task.h"
 
 
 static void SystemIrq_Init(void)
@@ -47,7 +48,7 @@ int main(void)
 
     while (1)
     {
-        
+        task_loop();
     }
 }
 
@@ -61,11 +62,7 @@ void TIMER_0_INST_IRQHandler(void)
         flex_button_scan();
         Buzzer_Service_10ms();
 
-        if(Task1Flag)
-        {
-            Task1_Update();
-        }
-        else if(TrackFlag)
+        if(TrackFlag)
         {
             LineWalking();
             turn_PID.Target = LineTracking_GetError();
@@ -80,7 +77,7 @@ void TIMER_0_INST_IRQHandler(void)
             Motor_SetPWM(1 , LeftPWM);
 			Motor_SetPWM(2 , RightPWM);
         }
-        else
+        else if (TASK == 0U)
         {
             TB6612_Motor_Stop();
         }

@@ -8,8 +8,7 @@
  */
 
 #include "app/key/app_key_task.h"
-#include "app/tarcking/app_irtracking.h"
-#include "Hardware/Buzzer&Light/B&L.h"
+#include "app/tasks/task.h"
 
 //上左中右
 
@@ -55,9 +54,17 @@ void btn_up_cb(flex_button_t *btn)
         return;
     }
 
-    if ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK)
+    if (((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK) ||
+        ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_SHORT_UP))
     {
-        Task1_Toggle();
+        if (TASK != 0U)
+        {
+            TASK = 0U;
+        }
+        else if (trace_state == CLOSE)
+        {
+            TASK = 1U;
+        }
     }
 }
 

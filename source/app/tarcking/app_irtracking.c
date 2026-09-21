@@ -1,7 +1,4 @@
 #include "app_irtracking.h"
-#include "Hardware/Buzzer&Light/B&L.h"
-#include "Hardware/Encoder/Encoder.h"
-#include "Hardware/TB6612/bsp_tb6612.h"
 
 /*
  * 循迹误差，全局静态变量
@@ -14,19 +11,6 @@ volatile uint8_t trace_status = 0;//记录开环与循迹的变化值 0为正常
 
 /* 运行/循迹使能标志 */
 volatile uint8_t TrackFlag = 0U;
-volatile uint8_t Task1Flag = 0U;
-
-volatile TraceState trace_state = TRACE_OPEN;
-static uint8_t trace_point_active = 0U;
-
-typedef enum {
-    TASK1_IDLE = 0,
-    TASK1_OPEN_LOOP,
-    TASK1_FINISHED
-} Task1State;
-
-static Task1State task1_state = TASK1_FINISHED;
-#define TASK1_OPEN_LOOP_PWM 2000
 
 /*
  * ================ 加权平均法配置 ================
@@ -175,96 +159,6 @@ void LineWalking(void)
 float LineTracking_GetError(void)
 {
     return LineTracking_Err;
-}
-
-void TraceStatus_Update(void)
-{
-    u8 sensor[8];
-    uint8_t black_count = 0U;
-
-    track_deal_four(&sensor[0], &sensor[1], &sensor[2], &sensor[3],
-                    &sensor[4], &sensor[5], &sensor[6], &sensor[7]);
-    for (uint8_t i = 0U; i < 8U; i++)
-    {
-        if (sensor[i] == 0U)
-        {
-            black_count++;
-        }
-    }
-
-    trace_point_active = (black_count >= 2U) ? 1U : 0U;
-    trace_status = trace_point_active;
-    trace_state = trace_point_active ? TRACE_CLOSE : TRACE_OPEN;
-}
-
-void Task1_Toggle(void)
-{
-    TraceStatus_Update();
-    if (Task1Flag != 0U)
-    {
-        Task1Flag = 0U;
-        task1_state = TASK1_FINISHED;
-        TB6612_Motor_Stop();
-        Buzzer_OFF();
-        return;
-    }
-
-    if (trace_state != TRACE_CLOSE)
-    {
-        return;
-    }
-
-    Task1Flag = 1U;
-    task1_state = TASK1_IDLE;
-    Encoder_ClearTotal();
-    Buzzer_Beep(100U);
-}
-
-void open_loop1(void)
-{
-    Motor_SetPWM(1U, TASK1_OPEN_LOOP_PWM);
-    Motor_SetPWM(2U, TASK1_OPEN_LOOP_PWM);
-}
-
-void open_loop2(void)
-{
-    TB6612_Motor_Stop();
-}
-
-void Task1_Update(void)
-{
-    TraceStatus_Update();
-    if (Task1Flag == 0U)
-    {
-        TB6612_Motor_Stop();
-        return;
-    }
-
-    if (task1_state == TASK1_IDLE)
-    {
-        if (trace_state == TRACE_OPEN)
-        {
-            task1_state = TASK1_OPEN_LOOP;
-        }
-        else
-        {
-            TB6612_Motor_Stop();
-            return;
-        }
-    }
-
-    if (task1_state == TASK1_OPEN_LOOP)
-    {
-        if (trace_state == TRACE_CLOSE)
-        {
-            Task1Flag = 0U;
-            task1_state = TASK1_FINISHED;
-            open_loop2();
-            Buzzer_for_a_while();
-            return;
-        }
-        open_loop1();
-    }
 }
 
 
