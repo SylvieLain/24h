@@ -61,8 +61,9 @@ void btn_up_cb(flex_button_t *btn)
         {
             TASK = 0U;
         }
-        else if (trace_state == CLOSE)
+        else
         {
+            /* 只提交启动请求；CLOSE 判定由 task_loop() 在刷新传感器后完成。 */
             TASK = 1U;
         }
     }

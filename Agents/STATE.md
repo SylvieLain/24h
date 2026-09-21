@@ -9,3 +9,5 @@ OpenCode muse-spark-1.3-contributor-free 已完成只读审核；发现并已修
 
 `task_loop()` 已按 `switch (TASK)` 分发：case 0 停止，case 1 执行任务1，default 复位 TASK 并停止，后续任务可继续增加 case。
 
+多角色审核后修正按键门控：上键回调只提交 `TASK=1` 请求，不再在 10 ms ISR 中直接读取可能滞后的 `trace_state`；`task_loop()` 刷新传感器后再确认 CLOSE，避免按键事件被静默丢弃。全量构建成功，尚未烧录本次按键修复。
+

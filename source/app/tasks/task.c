@@ -53,6 +53,15 @@ void task_loop(void)
     case 1U:
         if (task1_started == 0U)
         {
+            /* 按键只提交请求；必须在本轮实时采样确认 A 点为 CLOSE。 */
+            if (trace_state != CLOSE)
+            {
+                TASK = 0U;
+                previous_state = trace_state;
+                open_loop2();
+                break;
+            }
+
             /* A 点为 CLOSE，按键启动后立即开环驶出 A 点。 */
             task1_started = 1U;
             previous_state = trace_state;
