@@ -15,6 +15,10 @@
 #include "app/tarcking/app_irtracking.h"
 #include "app/tasks/task.h"
 
+#define TASK2_BASE_PWM 2000.0f
+#define TASK2_LINE_KP 500.0f
+#define TASK2_STEER_LIMIT 9999.0f
+
 
 static void SystemIrq_Init(void)
 {
@@ -40,6 +44,11 @@ int main(void)
     BL_Init();
     PID_Init(&speed_PID);
     PID_Init(&turn_PID);
+    /* 任务1实测选择的航向 PD 参数；Kd 和输出限幅尚未扫参。 */
+    turn_PID.Kp = 30.0f;
+    turn_PID.Kd = 100.0f;
+    turn_PID.OutMax = 100.0f;
+    turn_PID.OutMin = -100.0f;
     // LCD_Init();
     user_button_init();
     Gyro_Init();
@@ -62,16 +71,14 @@ void TIMER_0_INST_IRQHandler(void)
         flex_button_scan();
         Buzzer_Service_10ms();
 
-        if(TrackFlag)
+        if ((TASK == 2U) && (TrackFlag != 0U))
         {
             LineWalking();
-            turn_PID.Target = LineTracking_GetError();
-
-            turn_PID.Actual = - Gyro_Data.accel_z;
-            PID_Update(&turn_PID);
-            DifPWM = turn_PID.Out;
-
-            LeftPWM  = AvePWM + DifPWM;
+            DifPWM = TASK2_LINE_KP * LineTracking_GetError();
+            if (DifPWM > TASK2_STEER_LIMIT) DifPWM = TASK2_STEER_LIMIT;
+            if (DifPWM < -TASK2_STEER_LIMIT) DifPWM = -TASK2_STEER_LIMIT;
+            AvePWM = TASK2_BASE_PWM;
+            LeftPWM = AvePWM + DifPWM;
             RightPWM = AvePWM - DifPWM;
 
             Motor_SetPWM(1 , LeftPWM);
@@ -92,15 +99,6 @@ void TIMER_0_INST_IRQHandler(void)
             RightSpeed = Encoder_Get(1) * 25.0f / 520.0f;
 
             AveSpeed = (LeftSpeed + RightSpeed) / 2.0;
-            if(TrackFlag)
-			{
-				speed_PID.Actual = AveSpeed;
-				PID_Update(&speed_PID);
-				AvePWM = speed_PID.Out;
-
-				if (AvePWM > 0) AvePWM += DeadZone;
-				else if (AvePWM < 0) AvePWM -= DeadZone;
-			}
         }
         break;
     default:

@@ -15,13 +15,14 @@ volatile uint8_t TrackFlag = 0U;
 /*
  * ================ 加权平均法配置 ================
  *
- * 8个传感器从左到右排列，权重从负到正，中心对称
+ * 实测横向顺序：T4、T3、T2、T1、T5、T6、T7、T8；T1/T5 为中央两路。
+ * 权重从一侧到另一侧递增，中心对称。
  * 可根据实际传感器间距调整权重分布
  */
-#define TRACK_WEIGHT1   -7
-#define TRACK_WEIGHT2   -5
-#define TRACK_WEIGHT3   -3
-#define TRACK_WEIGHT4   -1
+#define TRACK_WEIGHT1   -1
+#define TRACK_WEIGHT2   -3
+#define TRACK_WEIGHT3   -5
+#define TRACK_WEIGHT4   -7
 #define TRACK_WEIGHT5    1
 #define TRACK_WEIGHT6    3
 #define TRACK_WEIGHT7    5

@@ -10,6 +10,7 @@ typedef enum
 } TraceState;
 
 extern volatile uint8_t TASK;
+extern volatile uint8_t car_pos;
 extern volatile TraceState trace_state;
 
 void task_loop(void);
