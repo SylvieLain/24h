@@ -26,7 +26,7 @@ typedef struct {
 void PID_Update(PID_t *p);
 void PID_Init(PID_t *p);
 
-/* 本工程 PID 实例（原 app_ui 迁入；参数由 PID_Init 建立） */
+/* 本工程 PID 实例 */
 extern PID_t speed_PID;
 extern PID_t turn_PID;
 

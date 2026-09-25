@@ -72,7 +72,7 @@ void btn_up_cb(flex_button_t *btn)
 
 
 /**
- * @brief  左键回调：暂不响应（保留接口）
+ * @brief  左键回调：单击启动任务2
  */
 void btn_left_cb(flex_button_t *btn)
 {
@@ -81,7 +81,15 @@ void btn_left_cb(flex_button_t *btn)
         return;
     }
 
-    (void)btn;
+    if (((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK) ||
+        ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_SHORT_UP))
+    {
+        if (TASK != 2U)
+        {
+            car_pos = 0U;
+        }
+        TASK = 2U;
+    }
 }
 
 /**

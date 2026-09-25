@@ -99,7 +99,7 @@ void LineWalking(void)
     //先不写 24h用不着
 
     // ============ 普通循线：加权平均 ============
-    if(TrackFlag==0)
+    if(TrackFlag != 0U)
     {
         /*
          * 将传感器值转为"数字信号"

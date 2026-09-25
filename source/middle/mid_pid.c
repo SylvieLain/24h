@@ -1,6 +1,5 @@
 #include "mid_pid.h"
 
-/* 本工程 PID 实例（原 app_ui 迁入；参数由 PID_Init 建立） */
 PID_t speed_PID;
 PID_t turn_PID;
 
