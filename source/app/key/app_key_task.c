@@ -93,9 +93,14 @@ void btn_left_cb(flex_button_t *btn)
 }
 
 /**
- * @brief  右键回调：暂不响应（保留接口）
+ * @brief  右键（Key3）：单击启动任务3，按键只提交任务请求。
  */
 void btn_right_cb(flex_button_t *btn)
 {
-    (void)btn;
+    if (btn == NULL) return;
+    if (((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK) ||
+        ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_SHORT_UP))
+    {
+        TASK = 3U;
+    }
 }
