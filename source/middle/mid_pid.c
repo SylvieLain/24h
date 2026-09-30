@@ -12,7 +12,7 @@ void PID_Init(PID_t *p)
 	p->Error0 = 0;
 	p->Error1 = 0;
 	p->ErrorInt = 0;
-	p->Kp = 0.0f;
+	p->Kp = 1200.0f;
 	p->Ki = 0.0f;
 	p->Kd = 0.0f;
 	p->ErrorIntMax = 10000.0f;

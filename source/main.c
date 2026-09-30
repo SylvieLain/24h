@@ -15,10 +15,6 @@
 #include "app/tarcking/app_irtracking.h"
 #include "app/tasks/task.h"
 
-/* 弧线控制参数：保留用户当前试跑设置。 */
-#define TASK2_BASE_PWM    3000.0f
-#define TASK2_LINE_KP     1200.0f
-#define TASK2_STEER_LIMIT 9999.0f
 
 
 static void SystemIrq_Init(void)
@@ -46,8 +42,8 @@ int main(void)
     PID_Init(&speed_PID);
     PID_Init(&turn_PID);
     /* 任务1实测选择的航向 PD 参数；Kd 和输出限幅尚未扫参。 */
-    turn_PID.Kp = 30.0f;
-    turn_PID.Kd = 100.0f;
+    turn_PID.Kp     = 30.0f;
+    turn_PID.Kd     = 100.0f;
     turn_PID.OutMax = 100.0f;
     turn_PID.OutMin = -100.0f;
     // LCD_Init();
@@ -74,13 +70,14 @@ void TIMER_0_INST_IRQHandler(void)
         if (((TASK == 2U) || (TASK == 3U)) && (TrackFlag != 0U))
         {
             LineWalking();
-            DifPWM = TASK2_LINE_KP * LineTracking_GetError();
+            DifPWM = turn_PID.Kp * LineTracking_GetError();
 
-            if (DifPWM > TASK2_STEER_LIMIT)  DifPWM =  TASK2_STEER_LIMIT;
-            if (DifPWM < -TASK2_STEER_LIMIT) DifPWM = -TASK2_STEER_LIMIT;
+            if (DifPWM >  TASK_BASE_PWM) DifPWM =  PD_LIMIT;
+            if (DifPWM < -TASK_BASE_PWM) DifPWM = -PD_LIMIT;
+
             /* 误差为正表示线在右侧：左侧加、右侧减。 */
-            LeftPWM = TASK2_BASE_PWM + DifPWM;
-            RightPWM = TASK2_BASE_PWM - DifPWM;
+            LeftPWM =  TASK_BASE_PWM + DifPWM;
+            RightPWM = TASK_BASE_PWM - DifPWM;
 
             Motor_SetPWM(1U, (int32_t)LeftPWM);
             Motor_SetPWM(2U, (int32_t)RightPWM);
@@ -89,6 +86,8 @@ void TIMER_0_INST_IRQHandler(void)
         {
             TB6612_Motor_Stop();
         }
+
+
         /* 每40 ms更新速度观测；不在这里改基础PWM或航向PD参数。 */
         feedback_cnt++;
         if (feedback_cnt >= 4U)

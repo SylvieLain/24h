@@ -8,14 +8,7 @@
 #include "Hardware/Buzzer&Light/B&L.h"
 #include "Hardware/TB6612/bsp_tb6612.h"
 
-#define TASK_BASE_PWM              3000.0f
-#define HEADING_PD_PERIOD_MS       10U
-/*跑通再限幅*/
-#define AB_HEADING_PD_LIMIT        9999.0f
-#define CD_HEADING_PD_LIMIT        9999.0f
-#define CD_AMEND        (-14.0f)
-#define TASK3_EXIT_TURN_DEG        50.0f
-#define TASK3_B_AMEND              (-0.0f)
+
 
 /* TASK 由按键提交  */
 volatile uint8_t TASK = 0U;
@@ -49,7 +42,7 @@ static TraceState read_trace_state(void)
     return OPEN;
 }
 
-/*反转角度*/
+/*反转,陀螺仪安装问题*/
 static float wrap_heading(float angle)
 {
     if (angle > 180.0f) angle -= 360.0f;
@@ -57,12 +50,7 @@ static float wrap_heading(float angle)
     return angle;
 }
 
-void open_loop1(void)
-{
-    Motor_SetPWM(1U, (int32_t)TASK_BASE_PWM);
-    Motor_SetPWM(2U, (int32_t)TASK_BASE_PWM);
-}
-
+/*急停*/
 static void stop_task(void)
 {
     TASK = 0U;
@@ -70,6 +58,7 @@ static void stop_task(void)
     TrackFlag = 0U;
     TB6612_Motor_Stop();
 }
+
 
 static uint8_t begin_heading_hold(float target, float output_limit)
 {
@@ -79,40 +68,66 @@ static uint8_t begin_heading_hold(float target, float output_limit)
     turn_PID.Actual = turn_PID.Target +
                       wrap_heading(Gyro_Data.angle_z - turn_PID.Target);
 
-    /* D 的历史用真实测量初始化，切换目标时不制造一次虚假的角度跳变。 */
     turn_PID.Actual1 = turn_PID.Actual;
     turn_PID.Error0 = turn_PID.Target - turn_PID.Actual;
     turn_PID.Error1 = turn_PID.Error0;
     turn_PID.ErrorInt = 0.0f;
-    turn_PID.Out = 0.0f;
-    turn_PID.OutMax = output_limit;
+    turn_PID.Out    = 0.0f;
+    turn_PID.OutMax =  output_limit;
     turn_PID.OutMin = -output_limit;
     last_pd_tick = Tick;
     return 1U;
 }
 
 /* 每10 ms闭环更新；Motor_SetPWM 写的是 PD 算出的执行量。 */
-static void update_heading_hold(void)
+static void update_heading_hold(uint8_t immediate)
 {
     const uint32_t now = Tick;
-    if ((uint32_t)(now - last_pd_tick) < HEADING_PD_PERIOD_MS) return;
+    if ((immediate == 0U) &&
+        ((uint32_t)(now - last_pd_tick) < HEADING_PD_PERIOD_MS)) return;
     last_pd_tick = now;
 
     turn_PID.Actual = turn_PID.Target +
                       wrap_heading(Gyro_Data.angle_z - turn_PID.Target);
     PID_Update(&turn_PID);
 
-    /* 正输出：左侧减、右侧加；电机1/2分别对应左/右。 */
-    LeftPWM = TASK_BASE_PWM - turn_PID.Out;
+    /*任务3特调*/
+    if ((running_task == 3U) && (car_pos == CAR_POS_B))
+    {
+        /* B 出弯加强比例转向；差量限在基础 PWM 内，内侧不反转。 */
+        turn_PID.Out += turn_PID.Kp * turn_PID.Error0;
+        if (turn_PID.Out > TASK_BASE_PWM) turn_PID.Out = TASK_BASE_PWM;
+        if (turn_PID.Out < -TASK_BASE_PWM) turn_PID.Out = -TASK_BASE_PWM;
+    }
+
+    /* 正输出：左侧减、右侧加；电机1/2分别对应左/右 */
+    LeftPWM  = TASK_BASE_PWM -turn_PID.Out;
     RightPWM = TASK_BASE_PWM + turn_PID.Out;
-    Motor_SetPWM(1U, (int32_t)LeftPWM);
+
+    if ((running_task == 3U) && (car_pos == CAR_POS_B))
+    {
+        /* 只给外侧轮补速：满差量时内侧0、外侧9999；误差归零后回到双侧3000。 */
+        const float boost = (PD_LIMIT - 2.0f * TASK_BASE_PWM) *
+                            (turn_PID.Out / TASK_BASE_PWM);
+        if (boost > 0.0f) RightPWM += boost;
+        if (boost < 0.0f) LeftPWM  -= boost;
+    }
+
+    Motor_SetPWM(1U, (int32_t) LeftPWM);
     Motor_SetPWM(2U, (int32_t)RightPWM);
 }
 
-/* 任务3无黑线的对角段：目标在入口设置，此处只非阻塞地更新航向输出。 */
+/*任务12直线开环*/
+void open_loop1(void)
+{
+    Motor_SetPWM(1U, (int32_t)TASK_BASE_PWM);
+    Motor_SetPWM(2U, (int32_t)TASK_BASE_PWM);
+}
+
+/* 任务3对角开环*/
 void open_loop2(void)
 {
-    update_heading_hold();
+    update_heading_hold(0U);
 }
 
 /* 手动放在 A：任务1/2朝水平直线；任务3已对准 A→C 对角线。 */
@@ -128,12 +143,12 @@ static void start_task(uint8_t task)
     car_pos = CAR_POS_A;
     previous_state = CLOSE;
     TrackFlag = 0U;
-    turn_PID.OutMax = AB_HEADING_PD_LIMIT;
-    turn_PID.OutMin = -AB_HEADING_PD_LIMIT;
+    turn_PID.OutMax = PD_LIMIT;
+    turn_PID.OutMin = -PD_LIMIT;
     if (task == 3U)
     {
         task3_ac_heading = wrap_heading(Gyro_Data.angle_z);
-        if (begin_heading_hold(task3_ac_heading, AB_HEADING_PD_LIMIT) == 0U)
+        if (begin_heading_hold(0, PD_LIMIT) == 0U)
         {
             stop_task();
             return;
@@ -151,7 +166,7 @@ static void run_task1(void)
     if ((previous_state == CLOSE) && (trace_state == OPEN))
     {
         /* 离开 A：用此刻 Z 角作为 A→B 的直线目标。 */
-        if (begin_heading_hold(Gyro_Data.angle_z, AB_HEADING_PD_LIMIT) == 0U)
+        if (begin_heading_hold(Gyro_Data.angle_z, PD_LIMIT) == 0U)
             stop_task();
     }
     else if ((previous_state == OPEN) && (trace_state == CLOSE))
@@ -163,7 +178,7 @@ static void run_task1(void)
     }
     else if (trace_state == OPEN)
     {
-        update_heading_hold();
+        update_heading_hold(0U);
     }
 }
 
@@ -175,7 +190,7 @@ static void run_task2(void)
         switch (car_pos)
         {
         case CAR_POS_A:
-            if (begin_heading_hold(Gyro_Data.angle_z, AB_HEADING_PD_LIMIT) == 0U)
+            if (begin_heading_hold(Gyro_Data.angle_z, PD_LIMIT) == 0U)
                 stop_task();
             break;
 
@@ -183,11 +198,11 @@ static void run_task2(void)
         {
             /* B→C弧线结束：只在 C→D 目标上叠加用户的 CD_AMEND。 */
             const float cd_heading =
-                wrap_heading(turn_PID.Target + 180.0f + CD_AMEND);
+                wrap_heading(turn_PID.Target + 180.0f + OPEN_LOOP1_AMEND);
             car_pos = CAR_POS_C;
             TrackFlag = 0U;
             Buzzer_for_a_while();
-            if (begin_heading_hold(cd_heading, CD_HEADING_PD_LIMIT) == 0U)
+            if (begin_heading_hold(cd_heading, PD_LIMIT) == 0U)
                 stop_task();
             break;
         }
@@ -226,7 +241,7 @@ static void run_task2(void)
     }
     else if (trace_state == OPEN)
     {
-        update_heading_hold();
+        update_heading_hold(0U);
     }
 }
 
@@ -237,21 +252,24 @@ static void run_task3(void)
         switch (car_pos)
         {
         case CAR_POS_A:
-            /* 首次驶出 A：继续首圈手动对准的 A→C 航向，不再转50°。 */
+            /* 首次驶出 A */
             break;
 
         case CAR_POS_C:
         {
-            /* C→B弧线结束：相对实际出弯方向转50°，再加本段补偿。
-             * 不再用首段基准推算绝对航向，避免实际出弯时需转约130°。 */
-            const float exit_heading = Gyro_Data.angle_z;
+            const float exit_heading = Gyro_Data.angle_z;/*出门采样*/
+
             const float bd_heading = wrap_heading(
-                exit_heading + TASK3_EXIT_TURN_DEG + TASK3_B_AMEND);
+                exit_heading + OPEN_LOOP2_AMEND);
+
             car_pos = CAR_POS_B;
             TrackFlag = 0U;
             Buzzer_for_a_while();
-            if (begin_heading_hold(bd_heading, CD_HEADING_PD_LIMIT) == 0U)
+            
+            if (begin_heading_hold(bd_heading, PD_LIMIT) == 0U)
                 stop_task();
+            else
+                update_heading_hold(1U);
             break;
         }
 

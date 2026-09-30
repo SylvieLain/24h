@@ -3,6 +3,18 @@
 
 #include <stdint.h>
 
+
+#define TASK_BASE_PWM              3500.0f
+#define HEADING_PD_PERIOD_MS       10U
+
+// #define LINE_KP     1200.0f
+#define PD_LIMIT    9999.0f
+
+/*跑通再限幅*/
+
+#define OPEN_LOOP1_AMEND           (-14.0f)
+#define OPEN_LOOP2_AMEND           (50.0f)
+
 typedef enum
 {
     OPEN = 0,  /* 未见黑线：任务1/2直线、任务3对角段使用 Z 角 PD。 */
