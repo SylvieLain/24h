@@ -1,124 +1,43 @@
-# DAP 维护说明
+# DAP 维护与工程入口
 
-仅在安装、故障诊断、换探针/电脑、修改 CLI 或扩展采样结构时读取。日常使用只读 `readme.md`。
+## 中央目录
 
-## 目录职责
+源码/CLI/界面为 `bin/` 与 `src/dap_cli/`；项目配置在忽略Git的 `projects.local.json`、`profiles/*.local.json/.cfg`；运行数据在 `runs/`；迁移备份在 `.state/`；可选本机 OpenOCD 运行时在 `.runtime/`。这些本机内容和凭据均不提交。
 
-```text
-Tool/OpenOCD/
-  readme.md / maintain.md      快速使用 / 维护说明
-  openocd.cfg                  探针、串号、SWD 速度、目标
-  dap.json                     CLI、ELF、别名、安全频率
-  openocd-mcp.json             MCP 权限和目标配置
-  bin/                         Windows/POSIX CLI 入口
-  src/dap_cli/                 CLI 实现
-  requirements/                Python 依赖及锁定版本
-  scripts/                     独立 OpenOCD/调试窗口脚本
-  analysis/                    历史专项分析脚本
-  plots/                       生成图
-  .venv/ .state/               本机环境和运行状态，不入 Git
-```
+TI工程 `tools/OpenOCD` 只留 `readme.md` 与 `maintain.md`，不留脚本、JSON、旧虚拟环境或图表。它通过全局PATH和IDE配置使用中央仓库内容，而不是目录联接、源码副本或另一套Python环境。
 
-根目录不再放临时测试脚本、历史分析程序或生成图。
+原工具已完整归档到 `.state/ti-project-tool-archive-20261019-1957`。旧采集器在用户授权后通过其STOP标记正常结束，原始CSV/事件/摘要仍留在工程work目录。原OpenOCD服务未操作；其启动命令显示旧cfg路径是已加载的启动历史，不表示以后仍应使用旧目录启动。
 
-## 安装
+## 更新与配置
 
-Windows：
+更新中央仓库代码后，重新启动监控面板Python服务才能使用新后端；浏览器刷新可更新JS/CSS。`--visualize` 是 `dashboard --open` 的等价入口，打开页面本身不接设备。
 
-```powershell
-py -3 -m venv Tool\OpenOCD\.venv
-Tool\OpenOCD\.venv\Scripts\python.exe -m pip install -r Tool\OpenOCD\requirements\requirements-mcp.txt
-```
+`profiles/ti-revenge.dashboard.json` 是可移植的界面/公式样例；将其 `dashboard/loops` 内容按实际固件核对后合入自己的local配置。UI添加/编辑条目会保存分组、角色、滑块边界和步长；可写参数会加入白名单并记录限值。删除界面条目不静默撤销已有白名单，维护者应按实际需要核对白名单。
 
-Linux/macOS：
+角色 `gain/target` 可写，`actual/watch/state` 只读。所有状态位均显示在公共状态时间轴；分组筛选控制参数和普通观测。新条目默认分组1，1不能被移除。
 
-```sh
-python3 -m venv Tool/OpenOCD/.venv
-Tool/OpenOCD/.venv/bin/python -m pip install -r Tool/OpenOCD/requirements/requirements-mcp.txt
-sh Tool/OpenOCD/bin/dap server
-```
+项目选择顺序：显式参数 > 当前工作目录所在工程 > `project use`记忆 > 注册表默认。切换项目不自动切换OpenOCD。每项目应有匹配的ELF、端口、精确目标名称、RAM范围和OpenOCD配置。
 
-CLI 源码跨平台；换机器时修改 `dap.json` 中 OpenOCD executable、scripts 和 ELF 路径。
+## IDE配置
 
-## 配置修改
+- `.eide/eide.yml`：按用户要求恢复原 `uploader: JLink`，器件MSPM0G3507、厂商TI。F9不由DAP接管。
+- `.vscode/tasks.json`：flash/build and flash恢复原EIDE命令，syscfg任务恢复。中央DAP通过独立终端命令使用。
+- `9.5.code-workspace`：Cortex-Debug `servertype: external`, `request: attach`, `gdbTarget: localhost:3333`, `loadFiles: []`；不自动烧录或运行到main。
 
-- 探针串号、SWD 速度、芯片目标：修改 `openocd.cfg`。
-- ELF、Tcl 端口、别名、频率保护：修改 `dap.json`。
-- MCP 工具权限：修改 `openocd-mcp.json` 和工程 `.vscode/mcp.json`。
-- 别名右侧必须是真实 ELF 全局变量或 `global_struct.member`，不得把编码器原始计数伪装成速度。
+`.vscode`与workspace文件按现有工程gitignore被忽略。此前替换EIDE上传器超出了用户期望，已恢复；保留独立DAP调试配置不代表可重写IDE烧录链。历史证据和第三方OpenOCD通用配置不删除。
 
-诊断顺序：
+TI官方 `target/ti_mspm0.cfg` 的examine-start包含对PWR_AP::SPREC的SYSRST写入，OpenOCD重新连接可能复位MCU。不要把“未发送reset命令”说成“没有发生复位”。
+
+## 维护验证
 
 ```powershell
-Tool\OpenOCD\bin\dap.cmd doctor --json
-Tool\OpenOCD\bin\dap.cmd symbols 关键词 --json
-Tool\OpenOCD\bin\dap.cmd read 真实变量 --json
+cd D:\CODE\mcu_tool
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+node --check src/dap_cli/dashboard.js
+dap --project ti-revenge project show
+dap --project ti-revenge --visualize --demo
 ```
 
-`doctor` 失败先处理供电、探针占用、串号、6666 端口和 ELF 路径，不先改采样代码。它还会只读采样两次 `dap.json` 的 `liveness_symbol`；目标虽为 running 但该值不递增时，应优先排查 ELF/板上固件不匹配或目标时基停滞。
+离线验证不运行doctor或读真实6666。图形变更需实际验证滑块暂存、开始/停止、状态/目标时间对照、条目分组编辑和回放；采集逻辑检查Tick回退、错误保留、磁盘文件与模拟标志。
 
-## 实现约束
-
-`read/monitor/record` 只允许使用 `targets` 和 `mdb`。目标不是 `running` 时直接失败，禁止自动改变目标状态。
-
-`dap write` 现在同时支持整数与 float32 变量：按 DWARF 类型编码，整数接受十进制和 `0x` 十六进制，浮点按 4 字节小端打包并按相对容差读回比对。位域（bitfield）拒绝写入，不做读改写，避免破坏相邻位。
-
-采样线程与图形线程分离：
-
-```text
-OpenOCD Tcl -> 采样线程 -> 有界队列 -> 实时曲线
-                                  -> JSONL
-                                  -> CSV
-```
-
-相邻符号自动合并为最大 256 字节的连续读取块，减少无线往返。GUI 默认 30 FPS；GUI 变慢只能丢显示帧，不能阻塞采样。
-
-不要在 MCU ISR/控制路径进行 JSON、CSV、字符串格式化、绘图或发送。200 Hz 控制数据应由 C 端按周期写连续快照/环形缓冲区，PC 每 20–50 ms 批量读取并按 MCU 时间戳还原。
-
-建议快照至少包含：
-
-```text
-seq_begin, target_tick, angle, gyro, speed, output,
-control_deadline_miss_count, control_max_late_us,
-trace_dropped_count, seq_end
-```
-
-读取前后序号不一致则丢弃该快照，避免读取到更新一半的数据。
-
-## 当前链路实测边界
-
-测试条件：无线 CMSIS-DAP v2、串号 `183b2401`、SWD 1 MHz、STM32F103。
-
-| 读取方式 | 实测 |
-|---|---:|
-| 单个 32 位变量 | 约 352–369 次/秒 |
-| 4 个分散变量逐个读取 | 约 87 组/秒 |
-| 8 个分散变量逐个读取 | 约 44 组/秒 |
-| 连续 64 字节 | 约 102 块/秒 |
-| 连续 256 字节 | 约 30 块/秒，约 7.7 KB/s |
-| 当前 CLI 四变量合并读取 | 约 6–7 ms/组，50 Hz 无超期 |
-
-超过 `dap.json` 的安全频率会拒绝执行；`--force` 只用于受控压力测试。
-
-## “不影响程序”的验收
-
-运行中 SWD 读 RAM 不是物理上的绝对零扰动。必须区分：
-
-- 已通过：目标保持 running、毫秒时基连续、50 Hz 主机采样无超期。
-- 未证明：闭环开启后 5 ms 控制周期没有微秒级抖动。
-
-在轮子安全架起且闭环实际开启时，对比各 30 秒：不采样、默认频率采样、连续块采样。检查 `control_seq`、deadline miss、最大延迟和丢样计数；不要用“窗口有数据”代替闭环无扰验收。
-
-## 修改后的最小回归
-
-```powershell
-Tool\OpenOCD\.venv\Scripts\python.exe -m py_compile Tool\OpenOCD\bin\dap.py Tool\OpenOCD\src\dap_cli\cli.py
-Tool\OpenOCD\bin\dap.cmd --help
-Tool\OpenOCD\bin\dap.cmd doctor --json
-Tool\OpenOCD\bin\dap.cmd read balance.output --json
-Tool\OpenOCD\bin\dap.cmd monitor balance.output --json --duration 1
-```
-
-图形相关修改还必须实际打开一次 `monitor` 窗口；CSV/PID 修改必须用一份已知数据运行 `record`、`draw` 和 `pid analyze`。
-
-验证时记录 ELF SHA-256。`doctor` 能报告主机 ELF 哈希，但在固件提供构建身份字段前，不能自动证明板上程序与该 ELF 完全一致。
+本次两个固件补丁只生成且可应用检查通过，没有应用、编译或烧录。`heading-pd-terms.patch`为PID结构末尾增加3个float并保存分项，需全量重编译；旧结构成员偏移保持不变，新字段需要新ELF。仍非一致快照。TASK34补丁独立，不能当航向PD参数方案。

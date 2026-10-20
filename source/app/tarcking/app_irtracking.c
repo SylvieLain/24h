@@ -7,6 +7,7 @@
  * 0：居中
  */
 static float LineTracking_Err = 0;
+static volatile int8_t line_entry_direction = 0;
 volatile uint8_t trace_status = 0;//记录开环与循迹的变化值 0为正常循迹或者正常开环 1为识别到交接点
 
 /* 运行/循迹使能标志 */
@@ -131,6 +132,22 @@ void LineWalking(void)
         if (denominator > 0)
         {
             LineTracking_Err = (float)numerator / (float)denominator;
+            /*任务3 4*/
+            /* 斜入弯先转到中央重新捕线；宽覆盖和分散见黑不提前交接。 */
+            if ((line_entry_direction != 0) && (denominator <= 3) &&
+                (s4 == 0U) && (s3 == 0U) && (s7 == 0U) && (s8 == 0U) &&
+                (((line_entry_direction < 0) && (s5 != 0U)) ||
+                 ((line_entry_direction > 0) && (s1 != 0U))))
+            {
+                const u8 center[4] = {s2, s1, s5, s6};
+                u8 groups = 0U;
+                for (u8 i = 0U; i < 4U; i++)
+                {
+                    if ((center[i] != 0U) &&
+                        ((i == 0U) || (center[i - 1U] == 0U))) groups++;
+                }
+                if (groups == 1U) line_entry_direction = 0;
+            }
 #if TRACK_LOSS_TIMEOUT > 0
             loss_count = 0;
 #endif
@@ -160,6 +177,16 @@ void LineWalking(void)
 float LineTracking_GetError(void)
 {
     return LineTracking_Err;
+}
+
+void LineTracking_SetEntryDirection(int8_t direction)
+{
+    line_entry_direction = direction;
+}
+
+int8_t LineTracking_GetEntryDirection(void)
+{
+    return line_entry_direction;
 }
 
 

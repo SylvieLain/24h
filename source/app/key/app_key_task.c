@@ -32,16 +32,16 @@ char get_app_key_current_mode(void)
 }
 
 /**
- * @brief  中键回调：当前任务1不使用
+ * @brief  中键（Key3）：单击启动任务3（一圈）。
  */
 void btn_mid_cb(flex_button_t *btn)
 {
-    if (btn == NULL)
+    if (btn == NULL) return;
+    if (((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK) ||
+        ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_SHORT_UP))
     {
-        return;
+        TASK = 3U;
     }
-
-    (void)btn;
 }
 
 /**
@@ -63,7 +63,7 @@ void btn_up_cb(flex_button_t *btn)
         }
         else
         {
-            /* 只提交启动请求；CLOSE 判定由 task_loop() 在刷新传感器后完成。 */
+            /* 只提交启动请求；OPEN 判定由 task_loop() 在刷新传感器后完成。 */
             TASK = 1U;
         }
     }
@@ -93,7 +93,7 @@ void btn_left_cb(flex_button_t *btn)
 }
 
 /**
- * @brief  右键（Key3）：单击启动任务3，按键只提交任务请求。
+ * @brief  右键（Key4）：单击启动任务4（BD航向补偿保持），按键只提交任务请求。
  */
 void btn_right_cb(flex_button_t *btn)
 {
@@ -101,6 +101,6 @@ void btn_right_cb(flex_button_t *btn)
     if (((flex_button_event_t)btn->event == FLEX_BTN_PRESS_CLICK) ||
         ((flex_button_event_t)btn->event == FLEX_BTN_PRESS_SHORT_UP))
     {
-        TASK = 3U;
+        TASK = 4U;
     }
 }

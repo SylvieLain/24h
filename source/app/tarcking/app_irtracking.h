@@ -14,6 +14,9 @@ extern volatile uint8_t trace_status;
 void LineTracking_ShowRawOnLCD(void);
 void LineWalking(void);
 float LineTracking_GetError(void);
+/* -1向左捕线，+1向右捕线，0恢复普通循迹；不包含等待。 */
+void LineTracking_SetEntryDirection(int8_t direction);
+int8_t LineTracking_GetEntryDirection(void);
 
 #endif
 

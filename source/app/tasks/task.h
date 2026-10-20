@@ -7,17 +7,22 @@
 #define TASK_BASE_PWM              3500.0f
 #define HEADING_PD_PERIOD_MS       10U
 
-// #define LINE_KP     1200.0f
+/*12循迹环*/
+#define LINE_KP     1200.0f
+#define LINE_KD      700.0f  /* 10 ms固定周期：使用相邻误差差值。 */
 #define PD_LIMIT    9999.0f
+/*34循迹环*/
+#define TASK34_LINE_KP  1500.0f
+#define TASK34_LINE_KD  500.0f
+#define PD34_LIMIT      9999.0f
 
 /*跑通再限幅*/
-
-#define OPEN_LOOP1_AMEND           (-14.0f)
-#define OPEN_LOOP2_AMEND           (50.0f)
+#define OPEN_LOOP1_AMEND           (-0.0f)
+#define OPEN_LOOP2_AMEND           (39.0f)  /*理论来说是38.66*/
 
 typedef enum
 {
-    OPEN = 0,  /* 未见黑线：任务1/2直线、任务3对角段使用 Z 角 PD。 */
+    OPEN = 0,  /* 未见黑线：任务1/2直线、任务3/4对角段使用 Z 角 PD。 */
     CLOSE = 1  /* 至少一路见黑：用于识别入线/出线边沿。 */
 } TraceState;
 

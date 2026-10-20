@@ -10,7 +10,8 @@
 - 不为一次调试引入通用测试平台、遥测框架或自动调参系统；复用已有工具，保留短而可复核的证据，不记录密码与密钥。
 
 ## 本项目工具入口（配置事实，未执行验证）
-- .vscode/tasks.json 提供 EIDE build/rebuild/flash/build and flash 任务；.eide/eide.yml 当前 uploader 是 JLink，cpuName 为 MSPM0G3507。存在 OpenOCD 配置不表示当前使用或已验证该路径。
+- EIDE构建/烧录链已按用户要求恢复：.eide/eide.yml uploader为JLink，MSPM0G3507/TI；.vscode的flash/buildAndFlash/syscfg为原EIDE入口，不由DAP接管。DAP只作为独立CLI/监控与external GDB attach使用，不擅自改IDE配置。
+- 工程 `tools/OpenOCD` 只保留 readme.md（人类与AI）和 maintain.md。配置、Python环境、运行时与采集程序在中央 D:\CODE\mcu_tool；`dap --visualize` 打开参数滑块及任务时间轴。旧工具归档在中央 .state/ti-project-tool-archive-20261019-1957，原采集数据仍保留工程 work 下。
 - build/Debug/builder.params 保存实际 sourceList；现有文件中的 toolchainLocation 是 d:/Tool-chain，后续构建前核对本机路径与生成时间。
 - 链接输入：source/device_linker.lds、source/device.lds.genlibs；编译参数包含 source/device.opt。不得用 STM32 Flash 地址或旧下载脚本默认值推断本工程下载范围。
 - SysConfig 入口有 tools/generate_syscfg.ps1（支持 -DryRun）和 .vscode/tasks.json 的 syscfg 任务。任务里含本机绝对工具/SDK 路径，换机器必须先核对；本次没有调用任何生成命令。

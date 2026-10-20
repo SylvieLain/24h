@@ -1,8 +1,0 @@
-#!/bin/sh
-set -eu
-DAP_BIN=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-DAP_ROOT=$(CDPATH= cd -- "$DAP_BIN/.." && pwd)
-if [ -x "$DAP_ROOT/.venv/bin/python" ]; then
-    exec "$DAP_ROOT/.venv/bin/python" "$DAP_BIN/dap.py" "$@"
-fi
-exec python3 "$DAP_BIN/dap.py" "$@"
