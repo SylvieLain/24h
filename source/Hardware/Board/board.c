@@ -123,13 +123,6 @@ void uart1_sendString(char* str)
     }
 }
 
-/* ── UART1 ISR 诊断计数器 ──
-   视觉球链路已移出构建，中断处理不再更新这些计数；变量仍保留以维持
-   board.h 中的对外声明，当前恒为 0。 */
-volatile uint16_t uart1_diag_sync     = 0;  /* 原：收到帧头 0xA5 的次数 */
-volatile uint16_t uart1_diag_frame_ok = 0;  /* 原：CRC 通过的有效帧数 */
-volatile uint16_t uart1_diag_st2_fail = 0;  /* 原：CRC 校验失败次数 */
-
 volatile uint32_t Tick = 0;
 
 void SysTick_Handler(void) {

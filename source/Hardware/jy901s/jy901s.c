@@ -1,8 +1,10 @@
 #include "JY901S.h"
 #include <string.h>
+#include "Hardware/Board/board.h"
 
 volatile Gyro_Data_t Gyro_Data;
 volatile uint8_t Gyro_UpdateFlag = 0;
+volatile Gyro_Diag_t Gyro_Diag;
 
 static uint8_t Gyro_RxBuffer[11];
 static uint8_t Gyro_RxIndex = 0;
@@ -11,6 +13,7 @@ void Gyro_Init(void)
 {
     memset((void *)&Gyro_Data, 0, sizeof(Gyro_Data_t));
     Gyro_UpdateFlag = 0;
+    memset((void *)&Gyro_Diag, 0, sizeof(Gyro_Diag));
     Gyro_RxIndex = 0;
 
     DL_UART_Main_enableInterrupt(UART_3_INST, DL_UART_MAIN_INTERRUPT_RX);
@@ -40,6 +43,11 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
         return;
     }
 
+    uint8_t sum = 0U;
+    for (uint8_t i = 0U; i < 10U; i++) sum = (uint8_t)(sum + data[i]);
+    const uint32_t checksum_ok = (sum == data[10]);
+    if (checksum_ok == 0U) Gyro_Diag.checksum_errors++;
+
     switch (data[1])
     {
         case 0x53:
@@ -47,12 +55,18 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
             Gyro_Data.angle_y = (float)((int16_t)((data[5] << 8) | data[4])) / 32768.0f * 180.0f;
             Gyro_Data.angle_z = (float)((int16_t)((data[7] << 8) | data[6])) / 32768.0f * 180.0f;
             Gyro_UpdateFlag = 1;
+            Gyro_Diag.angle_tick = Tick;
+            Gyro_Diag.angle_checksum_ok = checksum_ok;
+            Gyro_Diag.angle_seq++;
             break;
 
         case 0x52:
             Gyro_Data.gyro_x = (float)((int16_t)((data[3] << 8) | data[2])) / 32768.0f * 2000.0f;
             Gyro_Data.gyro_y = (float)((int16_t)((data[5] << 8) | data[4])) / 32768.0f * 2000.0f;
             Gyro_Data.gyro_z = (float)((int16_t)((data[7] << 8) | data[6])) / 32768.0f * 2000.0f;
+            Gyro_Diag.gyro_tick = Tick;
+            Gyro_Diag.gyro_checksum_ok = checksum_ok;
+            Gyro_Diag.gyro_seq++;
             break;
 
         case 0x51:

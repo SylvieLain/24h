@@ -43,9 +43,9 @@ int main(void)
     PID_Init(&turn_PID);
 
         /* 航向 PID 参数*/
-        turn_PID.Kp     = 380.0f;
-        turn_PID.Ki     = 0.1f;
-        turn_PID.Kd     = 50.0f;
+        turn_PID.Kp     = 550.0f;
+        turn_PID.Ki     = 0.0f;
+        turn_PID.Kd     = 0.0f;
 
     // LCD_Init();
     user_button_init();
@@ -70,7 +70,7 @@ void TIMER_0_INST_IRQHandler(void)
         flex_button_scan();
         Buzzer_Service_10ms();
 
-        /* 任务2沿用当前PD；任务3/4使用task.h中的独立循迹参数。 */
+        /* 任务2沿用当前PD；任务3及Key4分段测试使用相同循迹参数。 */
         if (((TASK == 2U) || (TASK == 3U) || (TASK == 4U)) &&
             (TrackFlag != 0U))
         {

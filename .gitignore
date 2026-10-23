@@ -19,6 +19,7 @@ build/
 
 # Local workspace files
 *.code-workspace
+/work/
 
 # Local language-server settings
 .clangd

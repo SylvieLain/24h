@@ -98,11 +98,6 @@ void Tick_delay(uint32_t t);
 void Tick_SysTickCallback(void);
 void SysTick_Handler(void);
 
-/* ── UART1 ISR 诊断计数器（映射 BallLink 统计） ── */
-extern volatile uint16_t uart1_diag_sync;       /* 有效帧计数低16位 */
-extern volatile uint16_t uart1_diag_frame_ok;   /* 有效帧计数低16位 */
-extern volatile uint16_t uart1_diag_st2_fail;   /* CRC失败计数低16位 */
-
 void uart2_init(void);
 void uart3_init(void);
 

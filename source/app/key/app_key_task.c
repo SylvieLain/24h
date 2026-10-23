@@ -32,7 +32,7 @@ char get_app_key_current_mode(void)
 }
 
 /**
- * @brief  中键（Key3）：单击启动任务3（一圈）。
+ * @brief  中键（Key3）：单击启动完整任务3。
  */
 void btn_mid_cb(flex_button_t *btn)
 {
@@ -93,7 +93,7 @@ void btn_left_cb(flex_button_t *btn)
 }
 
 /**
- * @brief  右键（Key4）：单击启动任务4（BD航向补偿保持），按键只提交任务请求。
+ * @brief  右键（Key4）：从A点启动任务4，连续完成三圈后停车。
  */
 void btn_right_cb(flex_button_t *btn)
 {
