@@ -14,6 +14,7 @@
 #include "Hardware/jy901s/jy901s.h"
 #include "app/tarcking/app_irtracking.h"
 #include "app/tasks/task.h"
+#include "app/heading/app_heading.h"
 
 
 
@@ -40,13 +41,7 @@ int main(void)
     TB6612_Motor_Stop();
     BL_Init();
     PID_Init(&speed_PID);
-    PID_Init(&turn_PID);
-
-        /* 航向 PID 参数*/
-        turn_PID.Kp     = 550.0f;
-        turn_PID.Ki     = 0.0f;
-        turn_PID.Kd     = 0.0f;
-
+    Heading_Init();
     // LCD_Init();
     user_button_init();
     Gyro_Init();
@@ -56,67 +51,43 @@ int main(void)
     while (1)
     {
         task_loop();
+        
     }
 }
 
 void TIMER_0_INST_IRQHandler(void)
 {
-    static float last_line_error = 0.0f;
-    static uint8_t line_pd_active = 0U;
-
     switch (DL_TimerG_getPendingInterrupt(TIMER_0_INST))
     {
     case DL_TIMER_IIDX_ZERO:
         flex_button_scan();
-        Buzzer_Service_10ms();
+        Buzzer_IRQService();
 
-        /* 任务2沿用当前PD；任务3及Key4分段测试使用相同循迹参数。 */
+        /* 循迹环 */
         if (((TASK == 2U) || (TASK == 3U) || (TASK == 4U)) &&
             (TrackFlag != 0U))
         {
+
             LineWalking();
-            const float error = LineTracking_GetError();
-            const int8_t entry_direction = LineTracking_GetEntryDirection();
-            /* 新一段循迹首拍不计算差分，避免带入上一段误差。 */
-            if (line_pd_active == 0U) last_line_error = error;
-            if (((TASK == 3U) || (TASK == 4U)) && (entry_direction != 0))
-            {
-                /* 捕线时保持已知弯向，短暂全白也不反向纠偏。 */
-                DifPWM = (entry_direction < 0) ? -TASK_BASE_PWM : TASK_BASE_PWM;
-                line_pd_active = 0U;
-            }
-            else if ((TASK == 3U) || (TASK == 4U))
-            {
-                DifPWM = TASK34_LINE_KP * error +
-                         TASK34_LINE_KD * (error - last_line_error);
-                if (DifPWM >  PD34_LIMIT) DifPWM =  PD34_LIMIT;
-                if (DifPWM < -PD34_LIMIT) DifPWM = -PD34_LIMIT;
-            }
-            else
-            {
-                DifPWM = LINE_KP * error + LINE_KD * (error - last_line_error);
-            }
-            last_line_error = error;
-            if (entry_direction == 0) line_pd_active = 1U;
-
-            if (DifPWM >  TASK_BASE_PWM) DifPWM =  TASK_BASE_PWM;
-            if (DifPWM < -TASK_BASE_PWM) DifPWM = -TASK_BASE_PWM;
-
-            /* 误差为正表示线在右侧：左侧加、右侧减。 */
-            LeftPWM =  TASK_BASE_PWM + DifPWM;
-            RightPWM = TASK_BASE_PWM - DifPWM;
+            DifPWM = LineTracking_ComputeDuty(task_speed, TASK);
+            LeftPWM =  task_speed + DifPWM;
+            RightPWM = task_speed - DifPWM;
 
             Motor_SetPWM(1U, (int32_t)LeftPWM);
             Motor_SetPWM(2U, (int32_t)RightPWM);
         }
         else
         {
-            line_pd_active = 0U;
+            LineTracking_ResetPd();
             if (TASK == 0U) TB6612_Motor_Stop();
         }
 
+        /* 航向环：内部检查任务归属与使能，和循迹输出互斥。 */
+        update_heading(0U);
 
-        /* 每40 ms更新速度观测 */
+
+        /*  编码器
+            每40 ms更新速度观测 */
         feedback_cnt++;
         if (feedback_cnt >= 4U)
         {

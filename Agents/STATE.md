@@ -218,3 +218,8 @@ visualize已重启真实5Hz记录20261022-205300-9a273b06，当前603样本/erro
 新增task34_b_settling/CURVE_B_SETTLE8，B_ALIGN7、B_HEADING3，事件容量32覆盖三圈25事件，主机导出同步。实际源软件360基准、0.51/0.5边界、24/25ms边界、双向转向、同目标不重锁、三圈终点、任务1/2隔离均通过；编译HEX通过，cp用Copy-Item补齐，ELF8b0b8d0d8104b4ead701c17594e870aa905720b5b00bb6b77aeee19d11c8ee95，SRAM27800/32768。46界面符号/阶段离线检查通过。
 HID探针本轮仍初始化CMD_INFO失败，未烧录、未开启新实机记录，不能声称板上运行本版；上条实际烧录确认仍为AC零偏移版本。已请求电脑端DAP重插，尚未收到该问题回答。部署前用work/task34_b_settle_20261022/old_board冻结的真实旧图核实，不用pending before/build图向板写参数。
 入弯建议已给：begin首拍和10ms ISR均硬打0/7000，左等到T5/右等到T1才交接可能晚；建议单独提前到同侧中央T1/T5交现有PD、保留窄覆盖单簇限制。本轮app_irtracking/main未动，待单独试验。详见work/task34_b_settle_20261022/README.md。
+
+## 2026-10-26 当前：航向周期计算迁移至10ms定时中断（实施中）
+用户授权迁移并补全app_heading。保留当前A基准−102.68、B出口50ms、对准0.5度和到位25ms；主循环管理目标/路线/非阻塞停顿，定时中断执行周期航向控制。启动及阶段切换立即输出保留，停车/循迹禁用航向；仅屏蔽TIMER_0保护交接，不屏蔽UART。范围为heading、task和main必要连接；不改PID算法/循迹/按键/外设配置。基线work/heading_timer_20261026/before。验收为实际源主机流程和EIDE构建；本轮不操作硬件。
+
+2026-10-26 完成：航向周期入口已唯一迁到main的10ms中断；主循环仅保留目标/路线及阶段立即输出，25ms到期不取整到30ms。heading使能绑定任务，停车/循迹/50ms停顿关闭，重置先停用再发布；立即更新只屏蔽TIMER_0并恢复原使能。补全heading伪代码与550/0/0初始化、唯一turn_PID定义；修复基线循迹头文件缺类型和两处误差名引用，仅编译修复。生产源主机51910断言/360基准、任务1/2/3/4、50/25ms边界、输出互斥/IRQ状态/回绕通过；EIDE完整22源rebuild链接HEX通过，FLASH17344/SRAM1752。原cp失败用Copy-Item补齐，ELF SHA256 06ED3725AF884E74CA7EF8704F79B8EE183AC8EA73528F85240DBBFCEDCC445B，保留原RWX警告。PID/按键与before一致；用户并发整理/暂存不回退。本轮未操作硬件，ISR耗时/实车待验。证据work/heading_timer_20261026/README.md。

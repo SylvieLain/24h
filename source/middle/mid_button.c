@@ -360,6 +360,6 @@ flex_button_event_t flex_button_event_read(flex_button_t* button)
 */
 void flex_button_scan(void)
 {
-    flex_button_read();
+    flex_button_read   ();
     flex_button_process();
 }

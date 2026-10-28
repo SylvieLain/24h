@@ -1,7 +1,6 @@
 #include "mid_pid.h"
 
 PID_t speed_PID;
-PID_t turn_PID;
 
 void PID_Init(PID_t *p)
 {

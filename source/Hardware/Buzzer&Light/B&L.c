@@ -76,7 +76,7 @@ void Buzzer_Beep(uint16_t duration_ms)
     DL_GPIO_clearPins(Buzzer_Light_PORT, Buzzer_Light_Buzzer_PIN);
 }
 
-void Buzzer_Service_10ms(void)
+void Buzzer_IRQService(void)
 {
     if (buzzer_ticks_10ms == 0U)
     {
@@ -89,6 +89,7 @@ void Buzzer_Service_10ms(void)
     }
 }
 
+/*非阻塞buzzer*/
 void Buzzer_for_a_while(void)
 {
     Buzzer_Beep(80U);

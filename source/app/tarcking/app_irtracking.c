@@ -1,15 +1,17 @@
 #include "app_irtracking.h"
-
+#include "app/tasks/task.h"
 /*
  * 循迹误差，全局静态变量
  * 负数：线在左边，需要向左修正
  * 正数：线在右边，需要向右修正
  * 0：居中
  */
-static float LineTracking_Err = 0;
+static float LineTracking_Error = 0;
 static volatile int8_t line_entry_direction = 0;
-volatile uint8_t trace_status = 0;//记录开环与循迹的变化值 0为正常循迹或者正常开环 1为识别到交接点
-
+/* 循迹差速 PD 内部状态：原来藏在 main.c 定时中断的函数内 static 里 */
+static float   line_last_error = 0.0f;  /* 上一拍误差，用于 D 项 */
+static uint8_t line_pd_active  = 0U;    /* 0 = 本段首个有效采样，D 项置 0 */
+volatile uint8_t trace_status = 0;                  //记录开环与循迹的变化值 0为正常循迹或者正常开环 1为识别到交接点
 /* 运行/循迹使能标志 */
 volatile uint8_t TrackFlag = 0U;
 
@@ -51,20 +53,40 @@ static void track_deal_four(u8 *s1, u8 *s2, u8 *s3, u8 *s4, u8 *s5, u8 *s6, u8 *
     *s8 = DL_GPIO_readPins(Track_T8_PORT, Track_T8_PIN) ? 1 : 0;
 }
 
-void LineTracking_ShowRawOnLCD(void)
+/* 获取trace_state */
+TraceState read_trace_state(void)
 {
-    u8 sensor[8];
-    char buf[32];
+    const uint32_t pins[] = {
+        Track_T1_PIN, Track_T2_PIN, Track_T3_PIN, Track_T4_PIN,
+        Track_T5_PIN, Track_T6_PIN, Track_T7_PIN, Track_T8_PIN
+    };
+    GPIO_Regs *ports[] = {
+        Track_T1_PORT, Track_T2_PORT, Track_T3_PORT, Track_T4_PORT,
+        Track_T5_PORT, Track_T6_PORT, Track_T7_PORT, Track_T8_PORT
+    };
 
-    track_deal_four(&sensor[0], &sensor[1], &sensor[2], &sensor[3],
-                    &sensor[4], &sensor[5], &sensor[6], &sensor[7]);
-
-    sprintf(buf, "%d %d %d %d %d %d %d %d",
-            sensor[0], sensor[1], sensor[2], sensor[3],
-            sensor[4], sensor[5], sensor[6], sensor[7]);
-
-    LCD_ShowString(0, 100, buf, GREEN, BLACK, 16, 0);
+    /* 线可能只覆盖一路探头：至少一路低电平即认为见线。 */
+    for (uint8_t i = 0U; i < 8U; i++)
+    {
+        if (DL_GPIO_readPins(ports[i], pins[i]) == 0U) return CLOSE;
+    }
+    return OPEN;
 }
+
+// void LineTracking_ShowRawOnLCD(void)
+// {
+//     u8 sensor[8];
+//     char buf[32];
+
+//     track_deal_four(&sensor[0], &sensor[1], &sensor[2], &sensor[3],
+//                     &sensor[4], &sensor[5], &sensor[6], &sensor[7]);
+
+//     sprintf(buf, "%d %d %d %d %d %d %d %d",
+//             sensor[0], sensor[1], sensor[2], sensor[3],
+//             sensor[4], sensor[5], sensor[6], sensor[7]);
+
+//     LCD_ShowString(0, 100, buf, GREEN, BLACK, 16, 0);
+// }
 
 /*
  * 加权平均法循迹
@@ -89,7 +111,6 @@ void LineWalking(void)
     u8 x1, x2, x3, x4, x5, x6, x7, x8;
 
     track_deal_four(&x1, &x2, &x3, &x4, &x5, &x6, &x7, &x8);
-    
     /*
      * 黑线 = 0，白底 = 1
      *
@@ -131,7 +152,7 @@ void LineWalking(void)
 
         if (denominator > 0)
         {
-            LineTracking_Err = (float)numerator / (float)denominator;
+            LineTracking_Error = (float)numerator / (float)denominator;
             /*任务3 4*/
             /* 斜入弯先转到中央重新捕线；宽覆盖和分散见黑不提前交接。 */
             if ((line_entry_direction != 0) && (denominator <= 3) &&
@@ -176,7 +197,55 @@ void LineWalking(void)
  */
 float LineTracking_GetError(void)
 {
-    return LineTracking_Err;
+    return LineTracking_Error;
+}
+
+/*
+ * @brief 清除差速 PD 的内部状态
+ *
+ * 停车、离开循迹段或换段时调用，避免下一拍用旧误差算 D 项产生冲击。
+ */
+void LineTracking_ResetPd(void)
+{
+    line_last_error = 0.0f;
+    line_pd_active  = 0U;
+}
+
+/*
+ * @brief 循迹差速计算，每 10 ms 与 LineWalking() 同周期在定时中断里调用
+ *
+ * @param base_speed 基础前进速度；返回值已限幅到 ±base_speed
+ * @param task       当前任务号：2 用 LINE_KP/LINE_KD，3/4 用 TASK34_* 参数
+ * @retval 差速量 DifPWM，正值表示线偏右、需要右修正
+ */
+float LineTracking_ComputeDuty(float base_speed, uint8_t task)
+{
+    const float   error = LineTracking_GetError();
+    const int8_t  entry = line_entry_direction;
+    const uint8_t is34  = ((task == 3U) || (task == 4U)) ? 1U : 0U;
+    float duty;
+
+    /* 捕线：保持已知弯向，短暂全白也不反向纠偏；同时作废本段 D 状态。 */
+    if ((is34 != 0U) && (entry != 0))
+    {
+        line_pd_active = 0U;
+        return (entry < 0) ? -base_speed : base_speed;
+    }
+
+    /* 本段首个有效采样：把当前误差当作上一拍误差，本拍 D 项为 0。 */
+    if (line_pd_active == 0U) line_last_error = error;
+
+    duty = (is34 != 0U)
+           ? (TASK34_LINE_KP * error + TASK34_LINE_KD * (error - line_last_error))
+           : (LINE_KP * error + LINE_KD * (error - line_last_error));
+
+    line_last_error = error;
+    /* 保持原规则：entry ≠ 0 期间不算有效采样，D 项维持禁用 */
+    if (entry == 0) line_pd_active = 1U;
+
+    if (duty >  base_speed) duty =  base_speed;
+    if (duty < -base_speed) duty = -base_speed;
+    return duty;
 }
 
 void LineTracking_SetEntryDirection(int8_t direction)

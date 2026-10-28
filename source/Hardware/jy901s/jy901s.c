@@ -12,8 +12,8 @@ static uint8_t Gyro_RxIndex = 0;
 void Gyro_Init(void)
 {
     memset((void *)&Gyro_Data, 0, sizeof(Gyro_Data_t));
+    memset((void *)&Gyro_Diag, 0, sizeof(Gyro_Diag_t));
     Gyro_UpdateFlag = 0;
-    memset((void *)&Gyro_Diag, 0, sizeof(Gyro_Diag));
     Gyro_RxIndex = 0;
 
     DL_UART_Main_enableInterrupt(UART_3_INST, DL_UART_MAIN_INTERRUPT_RX);
@@ -24,7 +24,7 @@ void Gyro_ProcessByte(uint8_t byte)
 {
     if ((Gyro_RxIndex == 0) && (byte != 0x55))
     {
-        return;
+        return; 
     }
 
     Gyro_RxBuffer[Gyro_RxIndex++] = byte;
@@ -45,8 +45,15 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
 
     uint8_t sum = 0U;
     for (uint8_t i = 0U; i < 10U; i++) sum = (uint8_t)(sum + data[i]);
-    const uint32_t checksum_ok = (sum == data[10]);
-    if (checksum_ok == 0U) Gyro_Diag.checksum_errors++;
+
+    /* 坏帧：整帧丢弃，不写 Gyro_Data、不置 Gyro_UpdateFlag。
+     * 关键是也不推进角度时间戳 —— 否则后面的新鲜度判据会被坏帧反复"续期"，
+     * 让一个已经被污染的值看起来永远是新鲜的。 */
+    if (sum != data[10])
+    {
+        Gyro_Diag.checksum_errors++;
+        return;
+    }
 
     switch (data[1])
     {
@@ -56,7 +63,6 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
             Gyro_Data.angle_z = (float)((int16_t)((data[7] << 8) | data[6])) / 32768.0f * 180.0f;
             Gyro_UpdateFlag = 1;
             Gyro_Diag.angle_tick = Tick;
-            Gyro_Diag.angle_checksum_ok = checksum_ok;
             Gyro_Diag.angle_seq++;
             break;
 
@@ -65,7 +71,6 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
             Gyro_Data.gyro_y = (float)((int16_t)((data[5] << 8) | data[4])) / 32768.0f * 2000.0f;
             Gyro_Data.gyro_z = (float)((int16_t)((data[7] << 8) | data[6])) / 32768.0f * 2000.0f;
             Gyro_Diag.gyro_tick = Tick;
-            Gyro_Diag.gyro_checksum_ok = checksum_ok;
             Gyro_Diag.gyro_seq++;
             break;
 
@@ -80,10 +85,20 @@ void Gyro_ParseData(uint8_t *data, uint16_t length)
     }
 }
 
+
+/*��ת,�����ǰ�װ����*/
+float wrap_heading(float angle)
+{
+    if (angle > 180.0f) angle -= 360.0f;
+    if (angle < -180.0f) angle += 360.0f;
+    return angle;
+}
+
 void UART3_IRQHandler(void)
 {
     switch (DL_UART_Main_getPendingInterrupt(UART_3_INST))
     {
+
         case DL_UART_MAIN_IIDX_RX:
         {
             uint8_t byte = DL_UART_Main_receiveData(UART_3_INST);
